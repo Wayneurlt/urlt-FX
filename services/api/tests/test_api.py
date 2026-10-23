@@ -44,6 +44,26 @@ def test_bad_password_and_lockout(client):
     assert r.json()["error"]["code"] == "too_many_attempts"
 
 
+def test_lockout_uses_forwarded_client_ip_behind_proxies(client, monkeypatch):
+    """Behind Vercel + a tunnel every request arrives from the proxy; one user's failures must not lock out others."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "trusted_proxy_hops", 2)
+
+    def attempt(user: str, ip: str, password: str = "wrong-password"):
+        return client.post(
+            "/api/v1/auth/login",
+            json={"username": user, "password": password},
+            headers={"X-Forwarded-For": f"forged-by-client, {ip}, 10.0.0.1"},
+        )
+
+    for _ in range(5):
+        assert attempt("someone-else", "203.0.113.7").status_code == 401
+    assert attempt("someone-else", "203.0.113.7").status_code == 429
+    # A different real client behind the same proxies can still sign in.
+    assert attempt("admin", "198.51.100.9", "correct-horse-battery").status_code == 200
+
+
 def test_csrf_required_for_mutations(api):
     r = api.c.post("/api/v1/bots/news-volatility/actions/enable")  # no header
     assert r.status_code == 403 and r.json()["error"]["code"] == "csrf_failed"

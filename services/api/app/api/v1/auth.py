@@ -34,7 +34,16 @@ def user_out(u: User) -> dict:
 
 
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else ""
+    peer = request.client.host if request.client else ""
+    hops = get_settings().trusted_proxy_hops
+    if not hops:
+        return peer
+    # Each trusted proxy appends the address it received the request from, so the client is
+    # ``hops`` entries from the right; anything further left could be forged by the client.
+    chain = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if not chain:
+        return peer
+    return chain[-hops] if len(chain) >= hops else chain[0]
 
 
 @router.post("/auth/login")

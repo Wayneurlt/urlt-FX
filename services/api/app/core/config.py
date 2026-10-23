@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["http://localhost:3000"])
     login_max_failures: int = 5
     login_lockout_minutes: int = 15
+    # Reverse proxies in front of the API that append to X-Forwarded-For (e.g. Vercel + Cloudflare
+    # tunnel = 2). 0 = use the socket peer address. Used for sign-in lockouts and audit.
+    trusted_proxy_hops: int = Field(0, ge=0, le=5)
 
     market_data_provider: Literal["synthetic"] = "synthetic"
     synthetic_seed: int = 7
