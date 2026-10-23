@@ -1,0 +1,40 @@
+# Secrets & local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Data, databases, logs
+data/*.db
+data/*.db-*
+data/datasets/
+data/_gen*
+*.log
+logs/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/tsconfig.tsbuildinfo
+apps/web/next-env.d.ts
+apps/web/coverage/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

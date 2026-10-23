@@ -1,0 +1,57 @@
+# Local stack: PostgreSQL + API + worker + web. Starts in SIMULATION; no bot runs until a user starts it.
+#   cp .env.example .env   (set POSTGRES_PASSWORD and FX_SECRET_ENCRYPTION_KEY)
+#   docker compose up --build
+#   docker compose run --rm api python /app/scripts/create_admin.py admin
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fx
+      POSTGRES_DB: fx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fx -d fx"]
+      interval: 5s
+      retries: 10
+    ports: ["127.0.0.1:5432:5432"]
+
+  migrate:
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    working_dir: /app
+    command: ["alembic", "upgrade", "head"]
+    environment: &api_env
+      FX_APP_ENV: ${FX_APP_ENV:-development}
+      FX_DATABASE_URL: postgresql+psycopg://fx:${POSTGRES_PASSWORD}@db:5432/fx
+      FX_SECRET_ENCRYPTION_KEY: ${FX_SECRET_ENCRYPTION_KEY:-}
+      FX_COOKIE_SECURE: ${FX_COOKIE_SECURE:-false}
+      FX_CORS_ORIGINS: http://localhost:3000
+      FX_DATA_DIR: /app/data
+      FX_SAMPLE_CALENDAR_PATH: /app/data/sample_events.json
+      FX_LOG_LEVEL: ${FX_LOG_LEVEL:-INFO}
+    depends_on: { db: { condition: service_healthy } }
+
+  api:
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    environment: *api_env
+    volumes: [fxdata:/app/data/datasets]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    ports: ["127.0.0.1:8000:8000"]
+
+  worker:
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    command: ["python", "-m", "app.workers.runner"]
+    environment: *api_env
+    volumes: [fxdata:/app/data/datasets]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    restart: unless-stopped
+
+  web:
+    build: { context: apps/web, args: { API_ORIGIN: "http://api:8000" } }
+    environment: { API_ORIGIN: "http://api:8000" }
+    depends_on: [api]
+    ports: ["127.0.0.1:3000:3000"]
+
+volumes:
+  pgdata:
+  fxdata:

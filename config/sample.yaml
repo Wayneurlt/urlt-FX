@@ -1,0 +1,41 @@
+# Illustrative configuration (demo-testing defaults - NOT recommendations for live trading).
+# The running system stores versioned configuration in the database; edit it through the
+# dashboard or API, which validate it with the same schemas as `scripts/validate_config.py`.
+
+environment: simulation          # simulation | paper | live (live requires the readiness checks)
+
+news_volatility:                 # trading/strategies/news_volatility/config.py
+  instruments: [EURUSD, GBPUSD, USDJPY]
+  entry_mode: { news: true, volatility: true }
+  news:
+    currencies: [USD, EUR, GBP, JPY]
+    impact_levels: [high]
+    pre_event_seconds: 60
+    post_event_seconds: 30
+  volatility: { timeframe: M1, atr_ratio_min: 1.8, range_multiple_min: 2.5, expansion_min_pips: 8, cooldown_minutes: 30 }
+  initial_stop_pips: 15
+  trailing: { enabled: true, distance_pips: 10 }
+  instrument_overrides:
+    USDJPY: { initial_stop_pips: 20, trailing_distance_pips: 12 }
+
+daily_trading:                   # trading/strategies/daily_trading/config.py
+  instruments: [EURUSD, GBPUSD]
+  strategy_name: trend_following_baseline
+  timeframe: M15
+  max_trades_per_day: 3
+
+risk:                            # trading/risk/config.py
+  global:
+    max_daily_loss_pct: 1.5
+    max_concurrent_cycles: 2
+    max_consecutive_losses: 3
+  news_volatility:
+    max_cycle_risk_pct: 0.5      # combined across BOTH legs
+    max_cycles_per_instrument: 1
+  daily_trading:
+    max_trade_risk_pct: 0.25
+    max_daily_loss_pct: 1.0
+
+execution:
+  broker: simulated
+  live_trading_enabled: false    # informational: live can only be enabled via the readiness gate
